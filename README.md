@@ -22,7 +22,7 @@ This repository provides a base to setup and ECS Cluster.
 
   
 
-Bubble Sort Service uses a number of open source projects to work properly:
+ A number of open source projects to work properly:
 
 *  [node.js] - evented I/O for the backend
 
