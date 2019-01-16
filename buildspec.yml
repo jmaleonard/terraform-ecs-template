@@ -1,0 +1,40 @@
+version: 0.2
+
+env:
+  variables:
+      AWS_DEFAULT_REGION: eu-west-1
+      IMAGE_REPO_NAME: <YOUR DOCKER IMAGE>
+      IMAGE_TAG: latest
+      AWS_ACCOUNT_ID: <YOUR AWS ACCOUNT ID>
+      TERRAFORM_SHA_256: 94504f4a67bad612b5c8e3a4b7ce6ca2772b3c1559630dfd71e9c519e3d6149c
+  parameter-store:
+    AWS_ACCESS_KEY_ID: /common/aws-access-key
+    AWS_SECRET_ACCESS_KEY: /common/aws-secret-key
+
+phases:
+  install:
+    commands:
+      - apt install curl unzip wget
+      - curl -sL https://deb.nodesource.com/setup_8.x | sudo bash -
+      - apt install nodejs
+      - cd /tmp && curl -o terraform.zip https://releases.hashicorp.com/terraform/0.11.11/terraform_0.11.11_linux_amd64.zip && echo "${TERRAFORM_SHA_256} terraform.zip" | sha256sum -c --quiet && unzip terraform.zip && mv terraform /usr/bin
+  pre_build:
+    commands:
+      - cd $CODEBUILD_SRC_DIR
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image... 
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG 
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+  post_build:
+    commands:
+      - cd terraform/asg
+      - terraform init
+      - terraform validate
+      - terraform apply -auto-approve
